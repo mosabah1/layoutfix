@@ -72,6 +72,12 @@ Right-click the tray icon → **فتح ملف الاعدادات**, or edit:
 
 Save the file and restart the tool to apply.
 
+If a change seems to have no effect, run `layoutfix.exe --check`: it prints which
+settings file it is reading and says plainly when that file could not be parsed.
+Version 1.0.0 silently ignored a settings file saved with a UTF-8 BOM — which is
+what several Windows editors write by default — and fell back to the defaults
+with no indication. Fixed in 1.0.1.
+
 **Portable mode:** put a `settings.ini` next to `layoutfix.exe` and it is used
 instead, so the tool can live on a USB stick with its configuration.
 
@@ -151,6 +157,7 @@ pythonw layoutfix.py
 ```bat
 python layoutfix.py --selftest      ; the layout map, both directions
 python test_clipboard_race.py       ; capturing the selection
+python test_settings.py             ; the settings file, BOM and all
 python layoutfix.py --check         ; hotkey, tray icon, clipboard, Win32 structs
 ```
 

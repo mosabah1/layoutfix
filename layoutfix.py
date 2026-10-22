@@ -26,7 +26,7 @@ import winreg
 from ctypes import wintypes
 
 APP_NAME = "layoutfix"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 # ---------------------------------------------------------------- الاعدادات --
 # هذه قيم افتراضية فقط. ما يُقرأ فعلا هو ملف الاعدادات، ويُنشأ عند اول تشغيل:
@@ -45,6 +45,9 @@ DEBUG = False              # اكتب سجل تشخيص في layoutfix.log (شغ
 BOOLS = ("switch_layout", "fallback_line", "notify", "debug")
 FLOATS = ("empty_grace", "untouched_grace")
 TEXTS = ("hotkey", "hotkey_alt")
+# تفريغ hotkey_alt قرار لا سهو: معناه "لا تسجّل الاختصار الثاني اصلا".
+# اما hotkey فيبقى الافتراضي اذا فُرّغ، لان اداة بلا اختصار بلا فائدة.
+ALLOW_EMPTY = ("hotkey_alt",)
 
 
 def is_frozen():
@@ -105,8 +108,18 @@ debug = false
 """
 
 
+SETTINGS_ERROR = ""
+
+
+def _set_settings_error(msg):
+    """نسجّل سبب تجاهل الاعدادات لنعرضه بدل ان يبقى المستخدم في حيرة."""
+    globals()["SETTINGS_ERROR"] = msg
+    _log(msg)
+
+
 def load_settings():
     """يقرأ ملف الاعدادات وينشئه بالقيم الافتراضية عند اول تشغيل."""
+    globals()["SETTINGS_ERROR"] = ""
     path = settings_path()
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -119,17 +132,21 @@ def load_settings():
 
     parser = configparser.ConfigParser(inline_comment_prefixes=(";",))
     try:
-        parser.read(path, encoding="utf-8")
-    except (configparser.Error, OSError):
+        # utf-8-sig لا utf-8: محررات ويندوز تضيف BOM كثيرا، وعندها يفشل
+        # configparser بـ MissingSectionHeaderError فتُهمل اعداداتك بصمت.
+        parser.read(path, encoding="utf-8-sig")
+    except (configparser.Error, OSError) as exc:
+        _set_settings_error("تعذّرت قراءة ملف الاعدادات: %s" % exc)
         return path
     if not parser.has_section(APP_NAME):
+        _set_settings_error("لا يوجد قسم [%s] في ملف الاعدادات." % APP_NAME)
         return path
 
     g = globals()
     for key in TEXTS:
         if parser.has_option(APP_NAME, key):
             value = parser.get(APP_NAME, key).strip()
-            if value:
+            if value or key in ALLOW_EMPTY:
                 g[key.upper()] = value
     for key in BOOLS:
         if parser.has_option(APP_NAME, key):
@@ -855,6 +872,10 @@ def run_daemon(check_only=False):
     if not shell32.Shell_NotifyIconW(0, ctypes.byref(_nid)):       # NIM_ADD
         print("تحذير: تعذر اضافة الايقونة لشريط المهام (الاداة تعمل بدونها).")
 
+    if SETTINGS_ERROR:
+        notify("ملف الاعدادات مُهمَل",
+               "%s\nتعمل الاداة بالقيم الافتراضية." % SETTINGS_ERROR)
+
     if check_only:
         print("حجم INPUT:", ctypes.sizeof(INPUT), "(المتوقع 40 على 64-بت)")
         saved = clip_get()
@@ -993,6 +1014,8 @@ def main():
         _log("=== بدأ التشغيل بوضع التشخيص (%s %s) ===" % (APP_NAME, VERSION))
     if args and args[0] == "--check":
         print("ملف الاعدادات:", path)
+        if SETTINGS_ERROR:
+            print("تنبيه: %s (تُستخدم القيم الافتراضية)" % SETTINGS_ERROR)
         run_daemon(check_only=True)
         return 0
 
