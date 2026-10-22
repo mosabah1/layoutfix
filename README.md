@@ -12,6 +12,11 @@ hgsghl ugd;l     →   السلام عليكم
 You type fast, you look up, and the language was wrong. Instead of deleting the
 whole line and retyping it, press **Ctrl+Alt+L**.
 
+> Sibling of [translatefix](https://github.com/mosabah1/translatefix), which
+> translates the selected text with **Ctrl+Alt+T**. They are deliberately
+> separate programs: this one never makes a network call, and translation has to
+> send your text to a third party. Run both — they share no hotkeys.
+
 ---
 
 ## Install
